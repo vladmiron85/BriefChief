@@ -1,0 +1,68 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Thumbnails
+ehthumbs.db
+Thumbs.db
+
+# macOS specific metadata
+.Spotlight-V100
+.Trashes
+.fseventsd
+.apdisk
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+.env
+.venv
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# VSCode
+.vscode/
+.history/
+
+# JetBrains (PyCharm, IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+out/
+
+# Xcode / iOS / macOS development
+xcuserdata/
+*.xcuserstate
+*.xcworkspace
+DerivedData/
+build/
+
+# Other common tools
+coverage/
+.cache/
+.mypy_cache/
+.pytest_cache/
+.sass-cache/
+

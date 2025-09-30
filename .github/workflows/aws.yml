@@ -41,7 +41,7 @@ jobs:
       - name: Upload source via rsync
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -az --delete --exclude='.git' --exclude='.github' --exclude='**/__pycache__' --exclude='.venv' --exclude='.mypy_cache' --exclude='.pytest_cache'
+          switches: -az --delete --exclude='.git' --exclude='.env' --exclude='.github' --exclude='**/__pycache__' --exclude='.venv' --exclude='.mypy_cache' --exclude='.pytest_cache'
           path: ./jira_auth_server/
           remote_path: /opt/jira-auth-server
           remote_host: ${{ secrets.EC2_HOST }}

@@ -42,7 +42,7 @@ jobs:
         uses: burnett01/rsync-deployments@7.0.1
         with:
           switches: -az --delete --exclude='.git' --exclude='.github' --exclude='**/__pycache__' --exclude='.venv' --exclude='.mypy_cache' --exclude='.pytest_cache'
-          path: ./
+          path: ./jira-auth-server
           remote_path: /opt/jira-auth-server
           remote_host: ${{ secrets.EC2_HOST }}
           remote_user: ${{ secrets.EC2_USER }}

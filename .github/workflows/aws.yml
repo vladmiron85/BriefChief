@@ -1,0 +1,83 @@
+name: Deploy jira-auth-server to EC2
+
+on:
+  push:
+    branches: [ main ]   # измените при необходимости
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # (опционально) быстрые проверки/тесты
+      # - name: Run tests
+      #   run: |
+      #     pipx install tox || python -m pip install tox
+      #     tox -q
+
+      - name: Rsync code to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          # Устанавливаем rsync и гоняем файлы за один SSH-коннект
+          script: |
+            # гарантируем наличие rsync
+            if ! command -v rsync >/dev/null 2>&1; then
+              if [ -f /etc/debian_version ]; then
+                sudo apt-get update -y && sudo apt-get install -y rsync
+              elif [ -f /etc/redhat-release ]; then
+                sudo yum install -y rsync
+              else
+                echo "Install rsync manually for your distro" && exit 1
+              fi
+            fi
+
+      - name: Upload source via rsync
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -az --delete --exclude='.git' --exclude='.github' --exclude='**/__pycache__' --exclude='.venv' --exclude='.mypy_cache' --exclude='.pytest_cache'
+          path: ./
+          remote_path: /opt/jira-auth-server
+          remote_host: ${{ secrets.EC2_HOST }}
+          remote_user: ${{ secrets.EC2_USER }}
+          remote_key: ${{ secrets.SSH_KEY }}
+
+      - name: Install deps & restart service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/jira-auth-server
+
+            # 1) Создать виртуалку, если нет
+            if [ ! -d .venv ]; then
+              python3 -m venv .venv
+            fi
+            # 2) Обновить pip и зависимости
+            . .venv/bin/activate
+            python -m pip install --upgrade pip wheel setuptools
+
+            if [ -f requirements.txt ]; then
+              pip install -r requirements.txt
+            elif [ -f pyproject.toml ]; then
+              # Минималистично: pip с PEP 517 (если poetry.lock нет)
+              pip install .
+            fi
+
+            # 3) (опционально) миграции и сбор статик (если у вас Django и т.п.)
+            # python manage.py migrate --noinput
+            # python manage.py collectstatic --noinput
+
+            # 4) Перезапуск только нашего сервиса
+            sudo systemctl restart jira-auth-server
+            sudo systemctl --no-pager status jira-auth-server || true

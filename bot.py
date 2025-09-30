@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 from LLM import get_available_models, handle_llm_command
-from proposals_editor import propose, set_field, on_callback
+# from proposals_editor import propose, set_field, on_callback
 
 # Configure logging
 logging.basicConfig(
@@ -202,13 +202,21 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user_name = update.effective_user.first_name
     logger.info(f"Test command called by user ID: {user_id}, Name: {user_name}")
     
+    # Check authentication
+    if not is_user_authenticated(user_id):
+        await update.message.reply_text(
+            f"❌ {user_name}, для использования этой функции необходимо авторизоваться в Jira.\n"
+            f"Используйте команду /auth для авторизации."
+        )
+        return
+    
     test_file_name = "sample_chat_dialogue_workplace.txt"
     test_chat_history = ""
     if os.path.exists(test_file_name):
         with open(test_file_name, "r", encoding="utf-8") as f:
             test_chat_history = f.read().strip()
     await update.message.reply_text("Processing messages using OpenAI...")
-    response, success = await handle_llm_command(test_chat_history, 'model_openai')
+    response, success = await handle_llm_command(test_chat_history, 'model_openai', str(user_id))
     
     # Send response and store the message ID if successful
     await update.message.reply_text(response)
@@ -241,7 +249,7 @@ async def brief_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     
     # Обрабатываем сообщения с помощью LLM
-    response, success = await handle_llm_command(messages, model)
+    response, success = await handle_llm_command(messages, model, str(user_id))
     
     # Отправляем ответ
     await query.edit_message_text(response)
@@ -261,10 +269,10 @@ async def main() -> None:
         application.add_handler(CommandHandler("status", status_command))
         application.add_handler(CommandHandler("brief", brief_command))
         application.add_handler(CommandHandler("test", test_command))
-        application.add_handler(CommandHandler("propose", propose))
-        application.add_handler(CommandHandler("set", set_field))
+ #       application.add_handler(CommandHandler("propose", propose))
+ #       application.add_handler(CommandHandler("set", set_field))
         application.add_handler(CallbackQueryHandler(brief_callback, pattern="^model_"))
-        application.add_handler(CallbackQueryHandler(on_callback, pattern="^(?!model_).+"))
+ #       application.add_handler(CallbackQueryHandler(on_callback, pattern="^(?!model_).+"))
         
         # Run the bot with updater
         logger.info("Starting Telegram bot application...")

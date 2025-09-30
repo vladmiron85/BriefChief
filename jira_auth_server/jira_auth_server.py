@@ -19,9 +19,11 @@ app = Flask(__name__)
 # Configuration
 JIRA_CLIENT_ID = os.environ.get("JIRA_CLIENT_ID", "")
 JIRA_CLIENT_SECRET = os.environ.get("JIRA_CLIENT_SECRET", "")
-JIRA_REDIRECT_URI = os.environ.get("JIRA_REDIRECT_URI", "http://localhost:3334/oauth/callback")
+JIRA_REDIRECT_URI = os.environ.get("JIRA_REDIRECT_URI", "https://www.briefchief.ai/auth/callback")
 JIRA_BASE_URL = os.environ.get("JIRA_BASE_URL", "https://auth.atlassian.com")
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", Fernet.generate_key().decode())
+# API key for bot authentication
+API_KEY = os.environ.get("INTERNAL_API_KEY", "")
 
 # File to store user tokens
 TOKENS_FILE = "user_tokens.json"
@@ -54,6 +56,29 @@ def encrypt_token(token: str) -> str:
 def decrypt_token(encrypted_token: str) -> str:
     """Decrypt token from storage"""
     return fernet.decrypt(encrypted_token.encode()).decode()
+
+def verify_api_key(request) -> bool:
+    """Verify API key from request headers"""
+    if not API_KEY:
+        logger.error("INTERNAL_API_KEY not configured!")
+        return False
+    
+    # Check Authorization header
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        logger.warning("Missing Authorization header")
+        return False
+    
+    # Expected format: "Bearer <API_KEY>"
+    if not auth_header.startswith('Bearer '):
+        logger.warning("Invalid Authorization header format")
+        return False
+    
+    provided_key = auth_header[7:]  # Remove "Bearer " prefix
+    
+    # Use constant-time comparison to prevent timing attacks
+    import hmac
+    return hmac.compare_digest(provided_key, API_KEY)
 
 def is_token_valid(token_data: Dict) -> bool:
     """Check if token is still valid"""
@@ -193,6 +218,10 @@ def auth_callback():
             expires_in = token_response.get('expires_in', 3600)
             expires_at = datetime.now() + timedelta(seconds=expires_in)
             
+            # Get user information to retrieve account_id and email
+            access_token = token_response['access_token']
+            jira_user_info = get_jira_user_info(access_token)
+            
             # Encrypt and store token
             encrypted_token_data = {
                 'access_token': encrypt_token(token_response['access_token']),
@@ -200,7 +229,10 @@ def auth_callback():
                 'expires_at': expires_at.isoformat(),
                 'token_type': token_response.get('token_type', 'Bearer'),
                 'scope': token_response.get('scope', ''),
-                'created_at': datetime.now().isoformat()
+                'created_at': datetime.now().isoformat(),
+                'jira_account_id': jira_user_info.get('account_id', ''),
+                'jira_email': jira_user_info.get('email', ''),
+                'jira_cloud_id': jira_user_info.get('cloud_id', '')
             }
             
             # Save token for user
@@ -265,6 +297,37 @@ def auth_status(telegram_user_id: str):
     else:
         return jsonify({'authenticated': False, 'message': 'Token expired'})
 
+@app.route('/auth/token/<telegram_user_id>')
+def get_token(telegram_user_id: str):
+    """Get user's Jira token and credentials for MCP server (requires API key)"""
+    # Verify API key
+    if not verify_api_key(request):
+        logger.warning(f"Unauthorized token request for user {telegram_user_id}")
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    tokens = load_user_tokens()
+    
+    if telegram_user_id not in tokens:
+        return jsonify({'error': 'User not authenticated'}), 404
+    
+    token_data = tokens[telegram_user_id]
+    
+    # Try to refresh token if needed
+    refreshed_token = refresh_token_if_needed(telegram_user_id, token_data)
+    if refreshed_token:
+        token_data = refreshed_token
+    
+    if is_token_valid(token_data):
+        return jsonify({
+            'access_token': decrypt_token(token_data['access_token']),
+            'jira_account_id': token_data.get('jira_account_id', ''),
+            'jira_email': token_data.get('jira_email', ''),
+            'jira_cloud_id': token_data.get('jira_cloud_id', ''),
+            'expires_at': token_data['expires_at']
+        })
+    else:
+        return jsonify({'error': 'Token expired'}), 401
+
 @app.route('/auth/revoke/<telegram_user_id>')
 def revoke_auth(telegram_user_id: str):
     """Revoke user authentication"""
@@ -277,6 +340,41 @@ def revoke_auth(telegram_user_id: str):
         return jsonify({'message': 'Authentication revoked successfully'})
     else:
         return jsonify({'message': 'User not authenticated'}), 404
+
+def get_jira_user_info(access_token: str) -> Dict:
+    """Get Jira user information using access token"""
+    try:
+        # First, get accessible resources (cloud IDs)
+        resources_response = requests.get(
+            'https://api.atlassian.com/oauth/token/accessible-resources',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        
+        if resources_response.status_code == 200:
+            resources = resources_response.json()
+            if resources:
+                cloud_id = resources[0]['id']
+                
+                # Get user profile
+                profile_response = requests.get(
+                    f'https://api.atlassian.com/ex/jira/{cloud_id}/rest/api/3/myself',
+                    headers={'Authorization': f'Bearer {access_token}'}
+                )
+                
+                if profile_response.status_code == 200:
+                    profile = profile_response.json()
+                    return {
+                        'account_id': profile.get('accountId', ''),
+                        'email': profile.get('emailAddress', ''),
+                        'cloud_id': cloud_id,
+                        'display_name': profile.get('displayName', '')
+                    }
+        
+        logger.error(f"Failed to get user info: resources {resources_response.status_code}")
+        return {}
+    except Exception as e:
+        logger.error(f"Error getting Jira user info: {e}")
+        return {}
 
 def get_user_token(telegram_user_id: str) -> Optional[str]:
     """Get valid access token for user"""
@@ -306,8 +404,16 @@ if __name__ == '__main__':
     if ENCRYPTION_KEY == Fernet.generate_key().decode():
         logger.warning("ENCRYPTION_KEY not set! Generated a new one. Set it as environment variable for production.")
     
+    # Check if API key is set
+    if not API_KEY:
+        logger.error("INTERNAL_API_KEY not set! This is required for bot authentication.")
+        logger.error("Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'")
+        import sys
+        sys.exit(1)
+    
     logger.info("Starting Jira Auth Server...")
     logger.info(f"Jira Base URL: {JIRA_BASE_URL}")
     logger.info(f"Redirect URI: {JIRA_REDIRECT_URI}")
+    logger.info("Internal API authentication: ENABLED")
     
     app.run(host='0.0.0.0', port=5000, debug=True)

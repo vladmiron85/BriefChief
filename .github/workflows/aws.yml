@@ -59,12 +59,19 @@ jobs:
             set -e
             cd /opt/jira-auth-server
 
-            # 1) Создать виртуалку, если нет
-            if [ ! -d .venv ]; then
-              python3 -m venv .venv
+            if command -v python3.12 >/dev/null 2>&1; then
+              PY=python3.12
+            elif command -v python3.11 >/dev/null 2>&1; then
+              PY=python3.11
+            else
+              echo "Python >=3.10 is required. Install python3.11 or python3.12 on the server." >&2
+              exit 1
             fi
-            # 2) Обновить pip и зависимости
+
+            # venv на нужном Python
+            [ -d .venv ] || $PY -m venv .venv
             . .venv/bin/activate
+
             python -m pip install --upgrade pip wheel setuptools
 
             if [ -f requirements.txt ]; then

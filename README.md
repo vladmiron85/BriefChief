@@ -52,7 +52,7 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/briefchief.git
+git clone https://github.com/vladmiron85/BriefChief.git
 cd briefchief
 ```
 

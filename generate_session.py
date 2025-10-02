@@ -1,12 +1,7 @@
-#!/usr/bin/env python3
-"""
-Script to generate a Telegram session string for Telethon.
-This session string is required for the BriefChief bot to access chat history.
-"""
-
 import asyncio
-from telethon.sync import TelegramClient
+
 from telethon.sessions import StringSession
+from telethon.sync import TelegramClient
 
 async def generate_session_string():
     print("This script will help you generate a session string for Telethon.")
@@ -25,7 +20,6 @@ async def generate_session_string():
     async with TelegramClient(StringSession(), api_id, api_hash) as client:
         print("\nConnection successful!")
         
-        # For bot token authentication
         bot_token = input("\nEnter your bot token (from @BotFather): ")
         if bot_token:
             await client.start(bot_token=bot_token)
@@ -35,7 +29,6 @@ async def generate_session_string():
             print("\nSet this as your TELEGRAM_SESSION_STRING environment variable.")
             return
         
-        # For user authentication (if bot token not provided)
         print("\nNo bot token provided. Proceeding with user authentication.")
         print("You'll need to log in with a phone number.")
         

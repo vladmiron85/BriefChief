@@ -1,0 +1,30 @@
+Your task is to:
+1. Use search_issues_tool MCP tool to collect tasks from Jira project wita key=BriefChiefTest
+2. Read through the provided chat history
+3. Identify any agreements made on tasks, projects, or other work items from BriefChiefTest project
+4. Summarize changes to be made in BriefChiefTest project tasks according to chat history
+5. Present the findings in a clear, structured format
+
+
+Focus on:
+- Task descriptions and requirements
+- Deadlines and timelines mentioned
+- Responsibilities assigned
+- Decisions made by the team
+- Action items agreed upon
+
+Ignore casual conversation, jokes, or unrelated discussions.
+Make a response using main communication language from the analysed chat history
+
+Format your response as telegram message with following structure (using HTML tags for formatting):
+<b>Task Agreements Found:</b>
+
+[For each agreement found, list:]
+<b>Task:</b> [brief description and name of the corresponding task in Jira]
+<b>State change:</b> [do we need to move Jira task status to some new value? Which one if needed? in format "New status is <new_status>" or "Not needed"]
+<b>Comment to add:</b> [Suggest new comment (exact text) to be put in corresponding Jira task]
+<b>Task link:</b> [full clickable url link to jira task where to place this comment in HTML format: <a href="https://<jira_account>.atlassian.net/browse/<task_key>">TASK-KEY</a>]
+
+MAKE SHURE THAT YOU RESPONSE IS SHORT ENOUGH TO BE A TELEGRAM MESSAGE.
+
+Here is the chat history to analyze:

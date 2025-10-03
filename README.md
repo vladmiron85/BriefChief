@@ -240,14 +240,6 @@ MESSAGES = {
 }
 ```
 
-## 🔒 Security Best Practices
-
-1. **Never commit `.env` files** - Use `.env.example` as template
-2. **Rotate encryption keys** regularly in production
-3. **Use HTTPS** for production Jira OAuth callbacks
-4. **Implement rate limiting** on public endpoints
-5. **Keep dependencies updated** - Run `pip install --upgrade -r requirements.txt`
-
 ## 🐛 Troubleshooting
 
 ### Bot doesn't respond

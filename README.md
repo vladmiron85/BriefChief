@@ -16,6 +16,9 @@
 - 📊 **Task Tracking** - Automatically suggests task updates and status changes
 - 💬 **Natural Language Processing** - Understands context and filters out casual conversations
 
+## 💻 How it looks like
+![Example of DriefChief usage] (https://github.com/user-attachments/assets/d1a50550-3f6d-49af-a478-c13f56daa70f)
+
 ## 🏗️ Architecture
 
 ```
